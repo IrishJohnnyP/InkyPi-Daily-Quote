@@ -2,5 +2,5 @@
     "display_name": "Daily Quote",
     "id": "daily_quote",
     "class": "DailyQuote",
-    "repository": "https://github.com/fatihak/InkyPi-Plugin-Template"
+    "repository": "https://github.com/IrishJohnnyP/InkyPi-Daily-Quote"
 }
