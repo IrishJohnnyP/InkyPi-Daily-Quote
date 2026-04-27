@@ -3,9 +3,10 @@ from utils.http_client import get_http_session
 import logging
 import random
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
-ZENQUOTES_URL = "https://zenquotes.io/api/random"
+# Cloudflare Worker endpoint
+QUOTE_WORKER_URL = "https://quote-query.pietrowicz.workers.dev"
 
 FALLBACK_QUOTES = [
     {"q": "The only way to do great work is to love what you do.", "a": "Steve Jobs"},
@@ -30,7 +31,7 @@ class DailyQuote(BasePlugin):
 
     def generate_settings_template(self):
         template_params = super().generate_settings_template()
-        template_params['style_settings'] = True
+        template_params["style_settings"] = True
         return template_params
 
     def generate_image(self, settings, device_config):
@@ -57,12 +58,18 @@ class DailyQuote(BasePlugin):
     def _fetch_quote(self):
         session = get_http_session()
         try:
-            resp = session.get(ZENQUOTES_URL, timeout=15)
+            resp = session.get(QUOTE_WORKER_URL, timeout=15)
             resp.raise_for_status()
             data = resp.json()
-            if data and isinstance(data, list) and "q" in data[0]:
-                return data[0]
+
+            # Worker contract normalization
+            if "text" in data and "author" in data:
+                return {
+                    "q": data["text"],
+                    "a": data.get("author", "Unknown"),
+                }
+
         except Exception as e:
-            logger.error("ZenQuotes fetch failed: %s", e)
+            logger.error("Quote worker fetch failed: %s", e)
 
         return random.choice(FALLBACK_QUOTES)
