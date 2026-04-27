@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 # NOTE:
 # This constant name is intentionally kept the same
 # so this file is a TRUE drop-in replacement.
-ZENQUOTES_URL = "https://quote-query.pietrowicz.workers.dev"
+ZENQUOTES_URL = "https://quote.butternut.cloud"
 
 FALLBACK_QUOTES = [
     {"q": "The only way to do great work is to love what you do.", "a": "Steve Jobs"},
