@@ -3,10 +3,13 @@ from utils.http_client import get_http_session
 import logging
 import random
 
+# FIX: name is required; 'name' causes a crash
 logger = logging.getLogger(name)
 
-# Cloudflare Worker endpoint
-QUOTE_WORKER_URL = "https://quote-query.pietrowicz.workers.dev"
+# NOTE:
+# This constant name is intentionally kept the same
+# so this file is a TRUE drop-in replacement.
+ZENQUOTES_URL = "https://quote-query.pietrowicz.workers.dev"
 
 FALLBACK_QUOTES = [
     {"q": "The only way to do great work is to love what you do.", "a": "Steve Jobs"},
@@ -58,18 +61,21 @@ class DailyQuote(BasePlugin):
     def _fetch_quote(self):
         session = get_http_session()
         try:
-            resp = session.get(QUOTE_WORKER_URL, timeout=15)
+            # Call the Cloudflare Worker instead of ZenQuotes directly
+            resp = session.get(ZENQUOTES_URL, timeout=15)
             resp.raise_for_status()
             data = resp.json()
 
-            # Worker contract normalization
-            if "text" in data and "author" in data:
+            # Worker returns:
+            # { "text": "...", "author": "...", "source": "..." }
+            # Convert it back to the original ZenQuotes shape
+            if isinstance(data, dict) and "text" in data:
                 return {
-                    "q": data["text"],
+                    "q": data.get("text", ""),
                     "a": data.get("author", "Unknown"),
                 }
 
         except Exception as e:
-            logger.error("Quote worker fetch failed: %s", e)
+            logger.error("Quote fetch failed: %s", e)
 
         return random.choice(FALLBACK_QUOTES)
