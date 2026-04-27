@@ -4,7 +4,7 @@ import logging
 import random
 
 # FIX: name is required; 'name' causes a crash
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 # NOTE:
 # This constant name is intentionally kept the same
