@@ -6,7 +6,10 @@
     width: 100%;
     height: 100%;
     font-family: Georgia, "Times New Roman", serif;
-    text-rendering: optimizeLegibility;
+    text-rendering: optimizeSpeed; 
+    -webkit-font-smoothing: none !important; 
+    font-smoothing: none !important;
+    font-variant-ligatures: none;
     padding: 4dvh 4dvw;
     text-align: center;
     position: relative;
