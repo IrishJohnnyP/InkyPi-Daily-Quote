@@ -1,125 +1,179 @@
 export default {
-  async fetch(request, env, ctx) {
-    const CACHE_VERSION = "v9";
-    const url = new URL(request.url);
-    const season = Number(url.searchParams.get("season") ?? "2026");
-    const week = Number(url.searchParams.get("week") ?? "1");
-
-    // Aligned cache key with your DNS routing
-    const cacheKey = new Request(
-      `https://cfbrankings.butternut.cloud/internal-cache/${CACHE_VERSION}/season-${season}-week-${week}`,
-      request
-    );
-
-    const cache = caches.default;
-    const cached = await cache.match(cacheKey);
-    if (cached) return cached;
-
-    const apiKey = env.API_key;
-    const headers = {
-      "Accept": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  async fetch(request, env) {
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, X-App-Key",
     };
 
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
+    // 1️⃣ Handle CORS Preflight Requests
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
     }
 
-    const rankingsUrl = `https://api.collegefootballdata.com/rankings?year=${season}&week=${week}&seasonType=regular`;
-    const teamsUrl = `https://api.collegefootballdata.com/teams`;
-    const recordsUrl = `https://api.collegefootballdata.com/records?year=${season}`;
-
-    let rankingsData = [];
-    let teamMetaMap = {};
-    let recordsMap = {};
-
-    try {
-      const [rankingsRes, teamsRes, recordsRes] = await Promise.all([
-        fetch(rankingsUrl, { headers }),
-        fetch(teamsUrl, { headers }),
-        fetch(recordsUrl, { headers })
-      ]);
-
-      if (rankingsRes.ok) {
-        rankingsData = await rankingsRes.json();
-      } else {
-        const errText = await rankingsRes.text();
-        return new Response(JSON.stringify({ error: `Rankings API error status ${rankingsRes.status}: ${errText}` }, null, 2), {
-          status: rankingsRes.status,
-          headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-        });
-      }
-
-      if (teamsRes.ok) {
-        const teamsData = await teamsRes.json();
-        for (const t of teamsData) {
-          teamMetaMap[t.school] = {
-            mascot: t.mascot ?? "",
-            logo: t.logos?.[0] ?? null
-          };
-        }
-      }
-
-      if (recordsRes.ok) {
-        const recordsData = await recordsRes.json();
-        for (const r of recordsData) {
-          recordsMap[r.team] = `${r.total?.wins ?? 0}-${r.total?.losses ?? 0}`;
-        }
-      }
-    } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }, null, 2), {
-        status: 500,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+    // --- SECURITY CHECK ---
+    const clientKey = request.headers.get('X-App-Key');
+    if (!clientKey || clientKey !== env.app_key) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
+    // ----------------------
 
-    const polls = rankingsData[0]?.polls ?? [];
-    
-    const targetPoll = 
-      polls.find(p => p.poll === "Playoff Committee Rankings") ||
-      polls.find(p => p.poll === "AP Top 25") ||
-      polls.find(p => p.poll === "Coaches Poll") ||
-      polls[0] || 
-      { ranks: [] };
+    try {
+      const url = new URL(request.url);
+      const testProvider = url.searchParams.get("provider");
+      const forcedProvider = testProvider || env.FORCE_PROVIDER || null;
 
-    const ranks = (targetPoll.ranks || []).map(r => {
-      const oppMeta = teamMetaMap[r.school] || { mascot: "", logo: null };
-      const teamRecord = recordsMap[r.school] || "0-0";
-      
-      return {
-        rank: r.rank,
-        school: r.school,
-        team: r.school,
-        nickname: oppMeta.mascot,
-        logo: oppMeta.logo,
-        record: teamRecord,
-        conference: r.conference,
-        firstPlaceVotes: r.firstPlaceVotes ?? 0,
-        points: r.points ?? 0
+      const providerWeights = {
+        zenquotes: 3,
+        ninjas: 4,
+        favqs: 1,
+        motivational: 2,
       };
-    });
 
-    const payload = {
-      _worker_version: CACHE_VERSION,
-      season,
-      week,
-      poll: targetPoll.poll ?? "AP Top 25",
-      generated_at: new Date().toISOString(),
-      ranks
-    };
+      // Determine the primary provider
+      const primaryProvider = forcedProvider && providerWeights[forcedProvider]
+        ? forcedProvider
+        : selectWeightedProvider(providerWeights);
 
-    const response = new Response(
-      JSON.stringify(payload, null, 2),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "public, max-age=3600",
-          "Access-Control-Allow-Origin": "*",
-        },
+      // Build a resilient fallback queue (Primary first, remaining shuffled)
+      let providersQueue = Object.keys(providerWeights).filter(p => p !== primaryProvider);
+      providersQueue = providersQueue.sort(() => Math.random() - 0.5);
+      providersQueue.unshift(primaryProvider);
+
+      let quoteData = null;
+      let successfulProvider = null;
+
+      // 2️⃣ Try providers in sequence until one succeeds
+      for (const provider of providersQueue) {
+        try {
+          quoteData = await fetchFromProvider(provider, env);
+          if (quoteData && quoteData.text) {
+            successfulProvider = provider;
+            break; // Success! Exit the fallback loop.
+          }
+        } catch (err) {
+          console.warn(`Provider ${provider} failed:`, err.message);
+          continue; // Move to the next backup provider
+        }
       }
-    );
 
-    await cache.put(cacheKey, response.clone());
-    return response;
+      // 3️⃣ Final Fallback if ALL upstream APIs fail
+      if (!quoteData || !quoteData.text) {
+        quoteData = {
+          text: "Failure is simply the opportunity to begin again.",
+          author: "Henry Ford",
+          source: "Fallback",
+        };
+        successfulProvider = "fallback";
+      }
+
+      // ✅ FIX TEXT ENCODING (Native Decoding Trick)
+      quoteData.text = fixTextEncoding(quoteData.text);
+      quoteData.author = fixTextEncoding(quoteData.author);
+
+      return new Response(
+        JSON.stringify({
+          ...quoteData,
+          provider: successfulProvider,
+          weighted: !forcedProvider && successfulProvider !== "fallback",
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    } catch (err) {
+      // Catastrophic worker failure fallback
+      return new Response(
+        JSON.stringify({
+          text: "Failure is simply the opportunity to begin again.",
+          author: "Henry Ford",
+          source: "Worker Error",
+          provider: "error",
+        }),
+        {
+          status: 500,
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/json; charset=utf-8",
+          },
+        }
+      );
+    }
   },
 };
+
+// --- Helper Functions ---
+
+// Extracted fetch logic to keep the main block clean and allow looping
+async function fetchFromProvider(provider, env) {
+  if (provider === "zenquotes") {
+    const resp = await fetch("https://zenquotes.io/api/random");
+    if (!resp.ok) throw new Error(`ZenQuotes failed: ${resp.status}`);
+    const data = await resp.json();
+    return { text: data[0].q, author: data[0].a, source: "ZenQuotes" };
+  }
+
+  if (provider === "ninjas") {
+    const resp = await fetch("https://api.api-ninjas.com/v2/randomquotes", {
+      headers: { "X-Api-Key": env.NINJAS_API_KEY },
+    });
+    if (!resp.ok) throw new Error(`API Ninjas failed: ${resp.status}`);
+    const data = await resp.json();
+    return { text: data[0].quote, author: data[0].author || "Unknown", source: "API Ninjas" };
+  }
+
+  if (provider === "favqs") {
+    const page = Math.floor(Math.random() * 5) + 1;
+    const resp = await fetch(`https://favqs.com/api/quotes?page=${page}`, {
+      headers: { Authorization: `Token token=${env.FAVQS_API_KEY}` },
+    });
+    if (!resp.ok) throw new Error(`FavQs failed: ${resp.status}`);
+    const data = await resp.json();
+    const quote = data.quotes[Math.floor(Math.random() * data.quotes.length)];
+    if (!quote || !quote.body) throw new Error("Empty quote body from FavQs");
+    return { text: quote.body, author: quote.author || "Unknown", source: "FavQs" };
+  }
+
+  if (provider === "motivational") {
+    const resp = await fetch("https://motivational-spark-api.vercel.app/api/quotes/random");
+    if (!resp.ok) throw new Error(`Motivational Spark failed: ${resp.status}`);
+    const data = await resp.json();
+    return { text: data.quote, author: data.author || "Unknown", source: "Motivational Spark" };
+  }
+
+  throw new Error("Unknown provider");
+}
+
+// Weighted selector
+function selectWeightedProvider(weights) {
+  const entries = Object.entries(weights);
+  const total = entries.reduce((sum, [, w]) => sum + w, 0);
+  let roll = Math.random() * total;
+
+  for (const [provider, weight] of entries) {
+    if (roll < weight) return provider;
+    roll -= weight;
+  }
+}
+
+// Native byte-level decoder
+function fixTextEncoding(text) {
+  if (!text) return text;
+  try {
+    if (text.includes("â€") || text.includes("â\u0080")) {
+      const bytes = Uint8Array.from(text, (c) => c.charCodeAt(0));
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+    return text;
+  } catch (e) {
+    return text;
+  }
+}
