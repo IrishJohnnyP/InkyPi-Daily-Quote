@@ -44,7 +44,12 @@ class DailyQuote(BasePlugin):
 
         font_size = settings.get("font_size", "normal")
 
-        quote_data = self._fetch_quote()
+        # --- SECURITY FIX ---
+        # Retrieve the key from InkyPi's environment
+        app_key = device_config.load_env_key("app_key")
+        # --------------------
+
+        quote_data = self._fetch_quote(app_key)
 
         template_params = {
             "quote": quote_data["q"],
@@ -58,11 +63,21 @@ class DailyQuote(BasePlugin):
         )
         return image
 
-    def _fetch_quote(self):
+    def _get_auth_headers(self, app_key):
+        """Builds the custom headers needed to pass the Cloudflare Worker security check."""
+        if not app_key:
+            logger.error("Security Error: app_key was not found by device_config.")
+            return {}
+        return {"X-App-Key": app_key}
+
+    def _fetch_quote(self, app_key):
         session = get_http_session()
+        headers = self._get_auth_headers(app_key)
+        
         try:
-            # Call the Cloudflare Worker instead of ZenQuotes directly
-            resp = session.get(ZENQUOTES_URL, timeout=15)
+            # Call the Cloudflare Worker instead of ZenQuotes directly, 
+            # now passing the X-App-Key header
+            resp = session.get(ZENQUOTES_URL, headers=headers, timeout=15)
             resp.raise_for_status()
             data = resp.json()
 
