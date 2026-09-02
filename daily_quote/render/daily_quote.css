@@ -1,5 +1,5 @@
 /* Import Font */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Pacifico:wght@500;700;900&display=swap');
 
 .quote-container {
     display: flex;
@@ -22,7 +22,7 @@
     font-size: min(20dvh, 20dvw);
     line-height: 0.6;
     opacity: 0.15;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: Pacifico, "Times New Roman", serif;
     position: absolute;
     top: 4dvh;
     left: 4dvw;
@@ -30,7 +30,7 @@
 
 .quote-text {
     font-style: italic;
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: Pacifico, "Times New Roman", serif;
     line-height: 1.4;
     max-width: 85%;
     font-weight: 900;
