@@ -1,5 +1,16 @@
-/* Import Font */
-@import url('https://fonts.googleapis.com/css2?family=Grand+Hotel:wght@500;700;900&display=swap');
+@font-face {
+    font-family: Literata;
+    src: url('/static/fonts/Literata-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: Literata;
+    src: url('/static/fonts/Literata-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: italic;
+}
 
 .quote-container {
     display: flex;
@@ -8,7 +19,7 @@
     justify-content: center;
     width: 100%;
     height: 100%;
-    font-family: "Grand Hotel", serif;
+    font-family: Literata, serif;
     text-rendering: auto; 
     -webkit-font-smoothing: none !important; 
     font-smoothing: none !important;
@@ -22,7 +33,11 @@
     font-size: min(20dvh, 20dvw);
     line-height: 0.6;
     opacity: 0.15;
-    font-family: "Grand Hotel", serif;
+    font-family: Literata, serif;
+    text-rendering: auto; 
+    -webkit-font-smoothing: none !important; 
+    font-smoothing: none !important;
+    font-variant-ligatures: none;
     position: absolute;
     top: 4dvh;
     left: 4dvw;
@@ -30,7 +45,7 @@
 
 .quote-text {
     font-style: italic;
-    font-family: "Grand Hotel", serif;
+    font-family: Literata, serif;
     line-height: 1.4;
     max-width: 85%;
     font-weight: 900;
@@ -39,7 +54,7 @@
 
 .quote-author {
     margin-top: 3dvh;
-    font-weight: bold;
+    font-weight: 500;
     letter-spacing: 0.05em;
     z-index: 1;
 }
@@ -65,7 +80,6 @@
 .font-large .quote-author {
     font-size: min(4.5dvh, 4.5dvw);
 }
-
 /* Portrait orientation adjustments */
 @media (max-aspect-ratio: 1) {
     .quote-container {
