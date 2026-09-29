@@ -1,13 +1,13 @@
 @font-face {
     font-family: Literata;
-    src: url('/static/fonts/Literata-VariableFont_opsz,wght.ttf') format('truetype');
+    src: url('../../../static/fonts/Literata-VariableFont_opsz,wght.ttf') format('truetype');
     font-weight: 100 900;
     font-style: normal;
 }
 
 @font-face {
     font-family: Literata;
-    src: url('/static/fonts/Literata-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+    src: url('../../../static/fonts/Literata-Italic-VariableFont_opsz,wght.ttf') format('truetype');
     font-weight: 100 900;
     font-style: italic;
 }
