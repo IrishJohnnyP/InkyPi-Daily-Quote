@@ -44,7 +44,7 @@
 }
 
 .quote-text {
-    font-style: italic;
+    font-style: normal;
     font-family: Literata, serif;
     line-height: 1.4;
     max-width: 85%;
@@ -53,6 +53,7 @@
 }
 
 .quote-author {
+    font-style: italic;
     margin-top: 3dvh;
     font-weight: 500;
     letter-spacing: 0.05em;
