@@ -24,6 +24,7 @@
     -webkit-font-smoothing: none !important; 
     font-smoothing: none !important;
     font-variant-ligatures: none;
+    font-variant-numeric: oldstyle-nums;
     padding: 4dvh 4dvw;
     text-align: center;
     position: relative;
@@ -38,6 +39,7 @@
     -webkit-font-smoothing: none !important; 
     font-smoothing: none !important;
     font-variant-ligatures: none;
+    font-variant-numeric: oldstyle-nums;
     position: absolute;
     top: 4dvh;
     left: 4dvw;
